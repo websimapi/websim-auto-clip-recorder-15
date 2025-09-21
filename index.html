@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- ...existing content... -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auto Clip Recorder</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "idb-keyval": "https://esm.sh/idb-keyval@6.2.1"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ...existing content... -->
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">Auto Clip Recorder</div>
+      <div class="actions">
+        <button id="btn-pick-tab">Pick Tab to Record</button>
+        <button id="btn-start" disabled>Start Recording</button>
+        <button id="btn-split" disabled>New Clip</button>
+        <button id="btn-stop" disabled>Stop</button>
+        <label class="check"><input type="checkbox" id="auto-split-captured" checked /> Auto-split on tab nav</label>
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2>In-App Navigator (optional auto-split on URL change)</h2>
+      <div class="navrow">
+        <input id="nav-url" placeholder="https://example.com" />
+        <button id="nav-go">Go</button>
+        <label class="check">
+          <input type="checkbox" id="auto-split-on-nav" checked />
+          Auto-split on navigation
+        </label>
+      </div>
+      <div class="navigator-wrap">
+        <iframe id="navigator" sandbox="allow-scripts allow-forms allow-same-origin allow-popups" referrerpolicy="no-referrer"></iframe>
+      </div>
+      <p class="hint">Tip: To auto-split on navigation, record this tab and browse within the in-app navigator above. Some sites block embedding; use "New Clip" in those cases.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Clips</h2>
+      <div id="clips-grid" class="grid"></div>
+    </section>
+
+    <div class="modal-backdrop" id="editor-modal-backdrop" style="display: none;">
+    </div>
+
+    <section class="panel">
+      <h2>Outro Audio</h2>
+      <p class="hint">Select which "Hey Websim" sound to add to the end of each auto-composed clip. Click and drag on a waveform to select a region.</p>
+      <div id="outro-audio-grid" class="grid audio-grid"></div>
+    </section>
+
+    <div class="modal-backdrop" id="modal-backdrop" style="display: none;">
+      <div class="modal">
+        <h3>Preview Clip</h3>
+        <video id="modal-video" controls playsinline></video>
+        <button id="modal-close">Close</button>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2>Compose</h2>
+      <div class="compose-row">
+        <button id="btn-compose" disabled>Compose Selected</button>
+        <span id="compose-status"></span>
+      </div>
+      <video id="final-preview" controls playsinline></video>
+      <a id="download-link" download="composed.webm" class="download-link" style="display:none;">Download composed.webm</a>
+    </section>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
