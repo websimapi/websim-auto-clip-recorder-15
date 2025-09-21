@@ -36,76 +36,68 @@ class Composer {
     };
 
     const playVideoBlob = (blob) => {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const v = document.createElement("video");
-        v.src = URL.createObjectURL(blob);
+        const objUrl = URL.createObjectURL(blob);
+        v.src = objUrl;
         v.playsInline = true;
         v.crossOrigin = "anonymous";
         v.muted = true; v.volume = 0;
 
-        const srcNode = ac.createMediaElementSource(v);
-        srcNode.connect(masterGain);
-
+        let srcNode = null;
         let renderLoopId;
-        let lastFrame = null;
-        const fadeOutDuration = 500; // 0.5 second fade out
-        
-        const render = () => {
-          drawLetterbox();
-          if (v.readyState >= 2) { // HAVE_CURRENT_DATA
-            const vw = v.videoWidth || 16, vh = v.videoHeight || 9;
-            const scale = Math.min(this.width / vw, this.height / vh);
-            const dw = vw * scale, dh = vh * scale;
-            const dx = (this.width - dw) / 2, dy = (this.height - dh) / 2;
-            
-            // Store the last frame for fade out
-            lastFrame = { dx, dy, dw, dh, imageData: v };
-            
-            // Check if we're in the last fade-out period
-            const timeRemaining = v.duration - v.currentTime;
-            if (timeRemaining <= fadeOutDuration / 1000 && timeRemaining > 0) {
-              const fadeOutProgress = 1 - (timeRemaining / (fadeOutDuration / 1000));
-              this.ctx.globalAlpha = 1 - fadeOutProgress;
-            } else {
-              this.ctx.globalAlpha = 1.0;
-            }
-            
-            this.ctx.drawImage(v, dx, dy, dw, dh);
-            this.ctx.globalAlpha = 1.0; // Reset alpha
-          }
-          if (!v.paused && !v.ended) {
-            renderLoopId = requestAnimationFrame(render);
-          }
+        const fadeOutDuration = 500; // 0.5s
+
+        const cleanup = () => {
+          if (renderLoopId) cancelAnimationFrame(renderLoopId);
+          try { if (srcNode) srcNode.disconnect(); } catch {}
+          try { v.pause(); } catch {}
+          URL.revokeObjectURL(objUrl);
+          v.removeAttribute('src'); v.load();
         };
 
-        v.addEventListener("loadeddata", () => { 
-          v.play().then(() => {
-            render();
-          }).catch((err) => {
-            console.warn("Video play failed, continuing anyway:", err);
-            render(); // Still try to render
-          }); 
-        }, { once: true });
-        
-        v.addEventListener("ended", () => {
-          cancelAnimationFrame(renderLoopId);
-          srcNode.disconnect();
-          URL.revokeObjectURL(v.src);
-          v.src = "";
-          v.remove();
-          resolve();
-        }, { once: true });
-        
-        v.addEventListener("error", (e) => {
-          console.warn("Video error, skipping:", e);
-          cancelAnimationFrame(renderLoopId);
-          srcNode.disconnect();
-          URL.revokeObjectURL(v.src);
-          v.src = "";
-          v.remove();
-          // Don't reject, just resolve to continue
-          resolve();
+        const srcReady = async () => {
+          srcNode = ac.createMediaElementSource(v);
+          srcNode.connect(masterGain);
+          const render = () => {
+            drawLetterbox();
+            if (v.readyState >= 2) {
+              const vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+              const scale = Math.min(this.width / vw, this.height / vh);
+              const dw = vw * scale, dh = vh * scale;
+              const dx = (this.width - dw) / 2, dy = (this.height - dh) / 2;
+              const timeRemaining = Math.max(0, (v.duration || 0) - (v.currentTime || 0));
+              if (timeRemaining <= fadeOutDuration / 1000 && timeRemaining > 0) {
+                const p = 1 - (timeRemaining / (fadeOutDuration / 1000));
+                this.ctx.globalAlpha = 1 - p;
+              } else {
+                this.ctx.globalAlpha = 1.0;
+              }
+              this.ctx.drawImage(v, dx, dy, dw, dh);
+              this.ctx.globalAlpha = 1.0;
+            }
+            if (!v.paused && !v.ended) renderLoopId = requestAnimationFrame(render);
+          };
+          try { await v.play(); } catch (err) { console.warn("Video play failed, continuing anyway:", err); }
+          render();
+        };
+
+        const waitForReady = new Promise((res, rej) => {
+          const to = setTimeout(()=>rej(new Error("Video load timeout")), 5000);
+          v.oncanplay = () => { clearTimeout(to); res(); };
+          v.onloadedmetadata = () => { /* metadata ok */ };
+          v.onerror = (e) => { clearTimeout(to); rej(e); };
         });
+
+        waitForReady
+          .then(srcReady)
+          .catch((e)=>{ console.warn("Video error, skipping:", e); cleanup(); resolve(); });
+
+        v.addEventListener("ended", () => {
+          cleanup();
+           resolve();
+         }, { once: true });
+        v.addEventListener("error", (e) => { console.warn("Video error, skipping:", e); cleanup(); resolve(); });
       });
     };
 
@@ -167,7 +159,8 @@ class Composer {
     recorder.start(200);
 
     for (const b of blobs) {
-      await playVideoBlob(b);
+      await playVideoBlob(b); // sequential to preserve order
+      await new Promise(r=>setTimeout(r, 50)); // small pacing to flush frames
     }
     
     // Always play outro if we have logoUrl
@@ -196,7 +189,8 @@ class Composer {
       i.crossOrigin = "anonymous";
       i.onload = () => res(i);
       i.onerror = rej;
-      i.src = encodeURI(url);
+      // Support blob:, http(s), and paths safely without double-encoding
+      i.src = url;
     });
   }
 
